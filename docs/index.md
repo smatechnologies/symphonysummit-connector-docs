@@ -1,6 +1,6 @@
 ---
 slug: '/'
-sidebar_label: 'Product Name'
+sidebar_label: 'Symphony Summit Connector'
 ---
 
 # Symphony Summit Connector
