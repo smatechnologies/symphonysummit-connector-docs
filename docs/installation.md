@@ -131,6 +131,7 @@ Attribute Name Name | Value
 **ticketDescription**   	                     | Defines the description to use when creating a ticket. See section on Customized Description and Title Definitions.
 **ticketInformation**                          | Defines the information field to use when creating a ticket. See section on Customized Description and Title Definitions.
 **address**                                    | header - Symphony Summit instance address information
+**viewAddress**                                | header - Symphony Summit instance view address information
 **name**                                       | A name to indicate the Symphony Summit instance.
 **value**                                      | The address of the SymphonySummit instance. 
 **credentials**                                | header	- credential information.
@@ -208,6 +209,10 @@ The OpCon task tag definition can therefore be used to determine the routing of 
     "name": "production",
     "value": "Symphony Summit Instance address"
   },
+  "viewAddress": {
+    "name": "view-address",
+    "value": "Symphony Summit Instance address"
+  },
   "rules": {
     "includeJobLogAttachment": true,
     "includeTagRouting": true,
@@ -226,6 +231,10 @@ The OpCon task tag definition can therefore be used to determine the routing of 
         {
       "name": "attachment",
       "value": "api_integration/REST/Summit_RESTWCF.svc/RESTService/Summit_UploadAttachmentBase64Encoded"
+    },
+    {
+      "name": "viewIncident",
+      "value": "https://{0}/MDLIncidentMgmt/IM_TicketDetail.aspx?ID={1}"
     }
   ],
   "workingHours": {
