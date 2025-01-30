@@ -5,7 +5,7 @@ sidebar_label: 'Symphony Summit Connector'
 
 # Symphony Summit Connector
 
-Latest version of the EasyVista Connector is **24.0.0**.
+Latest version of the EasyVista Connector is **24.1.0**.
 
 The Symphony Summit Connector integrates with the Symphony Summit Incident Management Module of IT Service Management allowing OpCon to submit creation requests through the REst-API when OpCon tasks fail.
 
