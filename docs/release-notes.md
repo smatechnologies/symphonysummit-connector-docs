@@ -4,6 +4,13 @@
 
 This release of SymphonySummit is for opCon System 21.0 or greater. The connector only supports connections to the OpCon-API to retrieve job information and insert or update Incident information. 
 
+## Release 24.2.0
+
+### New Features
+
+**CON-621**    
+					Add capability to assign a task to a specific person using Assigned_Engineer_Email.  
+
 ## Release 24.1.0
 
 ### New Features

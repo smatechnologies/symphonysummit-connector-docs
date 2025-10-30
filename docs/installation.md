@@ -140,6 +140,7 @@ Attribute Name Name | Value
 **includeJobLogAttachment**                    | Indicates if the job log should be attached to the incident ticket. Value either true or false (default true).
 **includeTagRouting**                          | Indicates if User defined tags should be used for incident routing purposes. Value either true or false (default false). See section Tag Routing. Note that either includeTagRouting or includeWorkGroupNameTag can be enabled, not both. 
 **includeCategoryNameTag**                     | Indicates if using tags to define the CategoryName attribute is enabled. Value either true or false (default false). See section Category Naming using tags.
+**includeAssignToTag**                         | Indicates if using tags to define the Assigned_Engineer_Email attribute is enabled. See section AssignTo using tags.
 **includeWorkGroupNameTag**                    | Indicates if using tags to define the AssignedWorkGroupName attribute is enabled. Value either true or false (default false). See section Assigning WorkGroup Names using tags. Note that either includeTagRouting or includeWorkGroupNameTag can be enabled, not both.
 **submitSingleIncidentPerDay**                 | Indicates if a single incident should be submitted if the task fails after restart on the same calendar day. The configuration value DAILY_START_HOUR determines the hour to check from.  
 **urls**	                                     | header - Defines urls used by the connector. 
@@ -218,7 +219,8 @@ The OpCon task tag definition can therefore be used to determine the routing of 
     "includeTagRouting": true,
     "includeCategoryNameTag": true,
     "includeWorkGroupNameTag": false,
-    "submitSingleIncidentPerDay": day
+    "submitSingleIncidentPerDay": day,
+    "includeAssignToTag": true
   },
   "credentials": {
     "apiKey": "encrypted key"
@@ -315,6 +317,12 @@ The OpCon task tag definition can therefore be used to determine the routing of 
       "indicatorValue" : "CATNAME",
       "attribute" : "Category_Name",
       "value" : "testcatvalue"
+    },
+    {
+      "indicator" : "ASSIGNTO",
+      "indicatorValue" : "ASSIGNTO",
+      "attribute" : "Assign_To",
+      "value" : "service-now.com"
     },
     {
       "indicator": "DEFAULT",
@@ -502,6 +510,42 @@ Indicator     | Description
 
 ```
 In the above example, Elasticsearch will be extracted from the CATNAME_ OpCon tag and will be assigned to the Category_Name attribute value. 
+
+### AssignTo using OpCon tags
+Requires the rule **includeAssignToTag** to be enabled.
+OpCon tag names can be used to determine the Assigned_Engineer_Email attribute of the ticket. 
+
+When using assign to by OpCon tags, an OpCon tag ASSIGNTO_name value must be used. The software will check OpCon tags for a tag that start with the ASSIGNTO_ prefix
+and extract the name from the tag, setting the Assigned_Engineer_Email attribute value to the extracted value and appending the value definition to complete the user.
+
+Indicator     | Description
+------------- | --------------------------------------------------------
+**ASSIGNTO**   | Defines the check value be made for assign to check. 
+ 
+```
+  OpCon Tag : APP1_ROUTE1, ASSIGNTO_test
+
+  "tags": [
+    {
+      "indicator": "TAG_END",
+      "indicatorValue": "ROUTE1",
+      "attribute": "Assigned_WorkGroup_Name",
+      "value": "Application One"
+    {
+      "indicator" : "ASSIGNTO",
+      "indicatorValue" : "ASSIGNTO",
+      "attribute" : "Assigned_Engineer_Email",
+      "value" : "@service-now.com"
+    },
+      "indicator": "DEFAULT",
+      "indicatorValue": "DEFAULT",
+      "attribute": "Assigned_WorkGroup_Name",
+      "value": "DevOps"
+    }
+  ]
+
+```
+In the above example, test will be extracted from the ASSIGNTO_ OpCon tag, the value @service-now.com will be appended to the extracted test and will be assigned to the AAssigned_Engineer_Email attribute value. 
 
 ### OpCon Notification Manager Definition
 Notification Manager is used to execute the EasyVista Connector when a task completes with a failure condition. Using this approach allows the tasks to be added to the rule instead of defining a failure event on every task. 
