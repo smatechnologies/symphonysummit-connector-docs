@@ -5,8 +5,12 @@ module.exports = {
   url: 'https://help.smatechnologies.com',
   baseUrl: '/opcon/connectors/symphonysummit/',
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: 'warn',
+    },
+  },
   organizationName: 'smatechnologies',
   projectName: 'symphonysummit-connector-docs',
   themeConfig: {
@@ -16,6 +20,11 @@ module.exports = {
         alt: 'SMA Technologies Help Logo',
         src: 'img/logo.svg',
         href: 'https://help.smatechnologies.com',
+      },
+    },
+    docs: {
+      sidebar: {
+        autoCollapseCategories: true,
       },
     },
     footer: {
@@ -28,7 +37,7 @@ module.exports = {
       '@docusaurus/preset-classic',
       {
         docs: {
-          breadcrumbs: false,
+          breadcrumbs: true,
           routeBasePath: '/',
           sidebarPath: require.resolve('./sidebars.js'),
           editUrl:
@@ -44,11 +53,5 @@ module.exports = {
       },
     ],
   ],
-  plugins: [
-//    [
-//      require.resolve('@cmfcmf/docusaurus-search-local'), 
-//      {
-//      }
-//    ],
-  ],
+  plugins: [],
 };

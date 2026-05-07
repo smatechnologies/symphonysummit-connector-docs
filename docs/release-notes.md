@@ -1,39 +1,40 @@
-# Release Notes SymphonySummit
+---
+sidebar_label: 'Release notes'
+title: Symphony Summit Connector release notes
+description: "Version history and change details for the Symphony Summit Connector, including new features, improvements, and bug fixes."
+tags:
+  - Reference
+  - System Administrator
+  - Connectors
+---
+
+# Symphony Summit Connector release notes
 
 ## General
 
-This release of SymphonySummit is for opCon System 21.0 or greater. The connector only supports connections to the OpCon-API to retrieve job information and insert or update Incident information. 
+This release of the Symphony Summit Connector is for OpCon system 21.0 or greater. The connector only supports connections to the OpCon API to retrieve job information and insert or update incident information.
 
-## Release 24.2.0
+## 24
 
-### New Features
+### 24.2.0
 
-**CON-621**    
-					Add capability to assign a task to a specific person using Assigned_Engineer_Email.  
+### What's new
 
-## Release 24.1.0
+:eight_spoked_asterisk: **CON-621**: Added the ability to assign a job to a specific person using the `Assigned_Engineer_Email` attribute.
 
-### New Features
+### 24.1.0
 
-**CONNUTIL-655**    
-					Add Incident view url capability to allow full definition of incident viewing URL.  
-                    To implement the change, add the new address to the template. This change allows the
-                    incident address and the view address to be different if required. 
-                    Else define the view-address the same as the main address.
+### What's new
 
-                    },
-                    "viewAddress": {
-                        "name": "view-address",
-                        "value": "address.com"
-                    },
+:eight_spoked_asterisk: **CONNUTIL-655**: Added an Incident view URL capability that allows a full definition of the incident viewing URL. To implement the change, add the new address to the template. This allows the incident address and the view address to differ when required; otherwise, define the `view-address` the same as the main address.
 
-## Release 24.0.0
+```json
+"viewAddress": {
+    "name": "view-address",
+    "value": "address.com"
+}
+```
 
-This is the initial release of the SymphonySummit COnnector.
+### 24.0.0
 
-### Migration Considerations
-
-### New Features
-
-### Fixes
-
+Initial release of the Symphony Summit Connector.

@@ -1,93 +1,153 @@
+---
+sidebar_label: 'Installation'
+title: Symphony Summit Connector installation
+description: "How to install and configure the Symphony Summit Connector, including supported software levels, EncryptValue utility usage, Connector.config settings, templates, and Notification Manager wiring."
+tags:
+  - Procedural
+  - System Administrator
+  - Connectors
+---
+
 # Installation
 
-The SymphonySummit Connector installation consists of multiple steps that are required to complete the installation successfully. 
+## What is it?
 
-The connector requires a SMA OpCon Windows Agent to provide the connection between Notification Manager in the OpCon System and the SymphonySummit Connector software. 
-It requires the OpCon Rest-API to extract the unique id of the task in the daily tables and the retrieval of the task's job log.
-It uses the OpCon connection to update the returned incident number in the task in the Daily tables.
+This page describes how to install and configure the Symphony Summit Connector so it can submit incident creation requests to a Symphony Summit instance when an OpCon job fails.
 
-## Supported Software Levels
-The following software levels are required to implement the SymphonySummit Connector.
+- Use this when you set up the connector for the first time on an OpCon Windows Server.
+- Use this when you upgrade or reconfigure the connector to point at a different Symphony Summit instance.
+- Use this when you add a new Notification Manager job trigger that should create an incident on job failure.
 
-- OpCon Release 21.0 or higher.
-- Embedded Java OpenJDK 11 (part of installation).
-- OpCon Rest API Configured to use TLS.
-- OpCon Windows Agent to provide link to EasyVista Connector.
-- OpCon Notification Manager.
-- A Symphony Summit implementation that supports the required Rest API.
+The connector relies on three OpCon components:
 
-## Installation
-The installation process consists of the following steps:
+- **Notification Manager** runs the connector when a job fails.
+- The **OpCon Windows Agent** hosts the connector executable.
+- The **OpCon REST API** identifies the failed job and retrieves its job log.
 
-- OpCon Windows Agent Installation.
-- SymphonySummit Connector Installation.
-- SymphonySummit Connector Configuration.
-- OpCon Notification Manager Definition
- 
-### OpCon Windows Agent Installation
-Copy the supplied install file SMASymphonySummitConnector-win.zip and extract it into the installation directory.
+## Before you begin
 
-After the installation is complete, the root installation directory contains the connector executable (SMASymphonySummit.exe), the encryption software executable (EncryptValue.exe), the Connector.config file and four directories, java, joblogs, templates and log. The java directory contains the java software required to execute the connector (OpenJDK 11), the joblogs directory is used to temporarily contain job logs extracted from the OpCon system, the log directory contains the connector log files and the templates directory contains the SymphonySummit template files.
+The following software levels are required to implement the Symphony Summit Connector.
 
-### SymphonySummit Connector Installation
-The SymphonySummit connector must be installed on the OpCon Windows Server as the Run Command option of the Notificaton Manager is used to invoke it.
-Copy the downloaded install file SMASymphonySummitConnector-win.zip and extract it into a temp directory (c:\temp). Extract the information including sub-directories into the required directory.
+| Component | Required level |
+| --- | --- |
+| OpCon | Release 21.0 or higher |
+| OpCon REST API | Configured to use TLS |
+| OpCon Windows Agent | Installed on the OpCon Windows Server |
+| OpCon Notification Manager | Installed and configured |
+| Symphony Summit | An instance that supports the required REST API |
+| Java | OpenJDK 11 (shipped with the connector — no separate install needed) |
 
-#### Create $SCHEDULE DATE-SSUM Global Property
-Create the special **$SCHEDULE DATE-SSUM** global property that contains the schedule date in the yyyy-MM-dd format from the standard $SCHEDULE DATE property. Set the value to **yyyy-MM-dd**.
+:::caution Where the connector runs
+The Symphony Summit Connector must be installed on the **OpCon Windows Server** because Notification Manager invokes it locally using the **Run Command** option.
+:::
 
-### SymphonySummit Connector Configuration
-The configuration of the SymphonySummit Connector requires setting the OpCon connection information for the OpCon system associated with the connector, setting the default ticket values and creating a template.
+## Installation overview
 
-All user and password values placed in the configuration and template files must be encrypted using the Encrypt.exe utility provided with the connector. 
+To install the Symphony Summit Connector, complete the following steps:
 
-#### EncryptValue Utility
-The EncryptValue utility uses standard 64 bit encryption.
+1. [Install the OpCon Windows Agent](#step-1-install-the-opcon-windows-agent).
+2. [Install the Symphony Summit Connector](#step-2-install-the-symphony-summit-connector).
+3. [Configure `Connector.config`](#step-3-configure-the-connector).
+4. [Create a template](#step-4-create-a-template).
+5. [Configure Notification Manager](#step-5-configure-notification-manager).
 
-Supports a -v argument and displays the encrypted value
+---
 
-On Windows, example on how to encrypt the value "abcdefg":
+## Step 1: Install the OpCon Windows Agent
 
-```
+Copy the supplied install file `SMASymphonySummitConnector-win.zip` and extract it into the installation directory.
+
+After the installation is complete, the root installation directory contains the following items:
+
+| Item | Purpose |
+| --- | --- |
+| `SMASymphonySummit.exe` | Connector executable |
+| `EncryptValue.exe` | Encryption utility for credentials |
+| `Connector.config` | Connector configuration file |
+| `java\` | Embedded OpenJDK 11 runtime |
+| `joblogs\` | Temporary storage for job logs retrieved from OpCon |
+| `templates\` | Symphony Summit template files |
+| `log\` | Connector log files |
+
+## Step 2: Install the Symphony Summit Connector
+
+To install the connector, complete the following steps:
+
+1. Copy the downloaded install file `SMASymphonySummitConnector-win.zip` to a temporary directory (for example, `c:\temp`).
+2. Extract the contents, including subdirectories, into the required installation directory.
+3. Create the **$SCHEDULE DATE-SSUM** global property:
+   - Set the value to `yyyy-MM-dd`.
+   - This property returns the schedule date in the `yyyy-MM-dd` format from the standard `$SCHEDULE DATE` property and is required by the connector.
+
+## Step 3: Configure the connector
+
+Configuration of the connector requires three things:
+
+- Encrypted credentials for the OpCon and Symphony Summit connections.
+- A populated `Connector.config` file.
+- At least one template (covered in [Step 4](#step-4-create-a-template)).
+
+### 3.1 Encrypt sensitive values
+
+All user and password values placed in the configuration and template files must be encrypted using the `EncryptValue.exe` utility provided with the connector. The utility uses standard 64-bit encryption and supports a `-v` argument that prints the encrypted value to the screen.
+
+To encrypt a value, run the utility with the `-v` argument:
+
+```bat
 EncryptValue.exe -v "abcdefg"
-
 ```
 
-#### Connector.config configuration
-Configure the Connector.config file in the installation directory setting the required information.
-The Connector.config contains the following values
+:::tip
+Encrypt the Symphony Summit `apiKey` and the OpCon application `TOKEN` before pasting them into the template or `Connector.config`.
+:::
 
-Property Name | Value
---------- | -----------
-**[GENERAL]**                       | header
-**JOBLOGDIR**                       | The name of the directory where the retrieved log files are stored. After successful attachment to the EasyVista Incident, the log file is deleted. The name is a sub directory of the installation directory (default joblogs).
-**TEMPLATESDIR**                    | The name of the directory where the template definitions are stored. The name is a sub directory of the installation directory (default templates).
-**DAILY_START_HOUR**                | The hour start of the daily batch processing (value is hour, i.e. 07 for 07:00)  
-**DEBUG**                           | The Connector supports a debug mode which can be enabled by setting the value to ON. The connector should be run with DEBUG disabled (OFF) and enabled (ON) when requested to capture an error condition. Value either ON or OFF (default OFF).
-**[DEFAULTS]**                      | header - Used to set ticket default values
-**PRIORITY_NAME_VALUE**             | Sets the default value for the CategoryName attribute (default P3).
-**IMPACT_NAME_VALUE**               | Sets the default value for the ImpactName attribute (default Medium).
-**URGENCY_NAME_VALUE**              | Sets the default value for the UrgencyName attribute (default Medium).
-**SUP_FUNCTION_VALUE**              | Sets the default value for the SupFunction attribute (default IT).
-**MEDIUM_VALUE**                    | Sets the default value for the Medium attribute (default Web).
-**CLASSIFICATION_NAME_VALUE**       | Sets the default value for the ClassificationName attribute (default Application Support).
-**SOURCE_VALUE**                    | Sets the default value for the Source attribute (default Event Trigger).
-**CATEGORY_NAME_VALUE**             | Sets the default value for the CategoryName attribute (default ElasticSearch).
-**ASSIGNED_WORK_GROUP_NAME_VALUE**  | Sets the default value for the AssignedWorkGroupName attribute (default DevOps).
+### 3.2 Configure Connector.config
 
-**[PROXY SERVER]**                  | header - Used to define the full URL of a proxy server if required
-**USES_PROXY**                      | Indicates if this connector should use a Proxy Server connection. Values are True or False (default False).
-**ADDRESS**                         | The address of the Proxy Server.
-**PORT**                            | The port of the Proxy Server.
-**[OPCON API]**                     | header - Used to define the connection to the OpCon API
-**ADDRESS**                         | The server address of the OpCon API.
-**PORT**                            | The port number used by the OpCon API server.
-**USES_TLS**                        | Must be set to True.
-**TOKEN**                           | An application token used for Authentication when communicating with the OpCon-API. 
+`Connector.config` is divided into four sections. Set values in each section as described below.
 
-Example configuration file. 
+#### `[GENERAL]`
 
-```
+| Property | Description | Default |
+| --- | --- | --- |
+| `JOBLOGDIR` | Subdirectory for retrieved job logs. After successful attachment to the Symphony Summit incident, the log file is deleted. | `joblogs` |
+| `TEMPLATESDIR` | Subdirectory containing the template definitions. | `templates` |
+| `DAILY_START_HOUR` | The hour the daily batch processing starts (for example, `07` for 07:00). | — |
+| `DEBUG` | Debug logging mode. Run with `OFF` and switch to `ON` to capture an error condition. | `OFF` |
+
+#### `[DEFAULTS]` — default ticket attribute values
+
+| Property | Sets the default value for | Default |
+| --- | --- | --- |
+| `PRIORITY_NAME_VALUE` | `Priority_Name` | `P3` |
+| `IMPACT_NAME_VALUE` | `Impact_Name` | `Medium` |
+| `URGENCY_NAME_VALUE` | `Urgency_Name` | `Medium` |
+| `SUP_FUNCTION_VALUE` | `Sup_Function` | `IT` |
+| `MEDIUM_VALUE` | `Medium` | `Web` |
+| `CLASSIFICATION_NAME_VALUE` | `Classification_Name` | `Application Support` |
+| `SOURCE_VALUE` | `Source` | `Event Trigger` |
+| `CATEGORY_NAME_VALUE` | `Category_Name` | `ElasticSearch` |
+| `ASSIGNED_WORK_GROUP_NAME_VALUE` | `Assigned_WorkGroup_Name` | `DevOps` |
+
+#### `[PROXY SERVER]` — optional proxy
+
+| Property | Description | Default |
+| --- | --- | --- |
+| `USES_PROXY` | Whether the connector uses a proxy server. Values: `True` or `False`. | `False` |
+| `ADDRESS` | The address of the proxy server. | — |
+| `PORT` | The port of the proxy server. | — |
+
+#### `[OPCON API]` — connection to OpCon
+
+| Property | Description |
+| --- | --- |
+| `ADDRESS` | The server address of the OpCon API. |
+| `PORT` | The port number used by the OpCon API server. |
+| `USES_TLS` | Must be set to `True`. |
+| `TOKEN` | An application token used for authentication. Generate this in OpCon. |
+
+#### Example `Connector.config`
+
+```ini
 [GENERAL]
 JOBLOGDIR=joblogs
 TEMPLATESDIR=templates
@@ -115,97 +175,114 @@ SERVER=BVHTEST02
 PORT=9010
 USES_TLS=True
 TOKEN=fc0520dc-fc93-4d3a-bf2f-7d0584c69df2
-
 ```
-The OPCON API section provides the information about connecting to the OpCon System using the OpCon Rest-API so the failed task information (incident ID number, tags, job logs, etc) can be retrieved from the OpCon task. The SERVER, PORT USES_TLS and TOKEN statements provide the definitions that will allow the SymphonySummit connector to connect to the OpCon Rest API. The TOKEN statement contains an application token (see OpCon Rest-API documentation on how to generate an application token).
 
-#### Templates
-Templates provide information about the SymphonySummit connection and the definitions that will be submitted in the JSON payload as part of the request. A default template can be found in the templates directory of the connector installation.
+:::note
+The `TOKEN` value is the application token generated through the OpCon REST API. See the OpCon REST API documentation for instructions on creating an application token.
+:::
 
-The template includes the address of the Symphony Summit instance, the credentials, the rules associated with the connector, descriptions to be used, attributes to be included and tag routing definitions.
+---
 
-A template includes the following definitions:
+## Step 4: Create a template
 
-Attribute Name Name | Value
---------- | -----------
-**ticketDescription**   	                     | Defines the description to use when creating a ticket. See section on Customized Description and Title Definitions.
-**ticketInformation**                          | Defines the information field to use when creating a ticket. See section on Customized Description and Title Definitions.
-**address**                                    | header - Symphony Summit instance address information
-**viewAddress**                                | header - Symphony Summit instance view address information
-**name**                                       | A name to indicate the Symphony Summit instance.
-**value**                                      | The address of the SymphonySummit instance. 
-**credentials**                                | header	- credential information.
-**apiKey**                                     | The api key which has the required privileges to connect to the Symphony Summit Instance to submit requests. The apiKey must be encrypted using the EncryptValue.exe utility .
-**rules**                                      | header - Defines what functions are supported by the connector.
-**includeJobLogAttachment**                    | Indicates if the job log should be attached to the incident ticket. Value either true or false (default true).
-**includeTagRouting**                          | Indicates if User defined tags should be used for incident routing purposes. Value either true or false (default false). See section Tag Routing. Note that either includeTagRouting or includeWorkGroupNameTag can be enabled, not both. 
-**includeCategoryNameTag**                     | Indicates if using tags to define the CategoryName attribute is enabled. Value either true or false (default false). See section Category Naming using tags.
-**includeAssignToTag**                         | Indicates if using tags to define the Assigned_Engineer_Email attribute is enabled. See section AssignTo using tags.
-**includeWorkGroupNameTag**                    | Indicates if using tags to define the AssignedWorkGroupName attribute is enabled. Value either true or false (default false). See section Assigning WorkGroup Names using tags. Note that either includeTagRouting or includeWorkGroupNameTag can be enabled, not both.
-**submitSingleIncidentPerDay**                 | Indicates if a single incident should be submitted if the task fails after restart on the same calendar day. The configuration value DAILY_START_HOUR determines the hour to check from.  
-**urls**	                                     | header - Defines urls used by the connector. 
-**name**                                       | A name that indicates the url usage (i.e. incident, attachment, etc).
-**value**                                      | The url definition minus the address portion. 
-**workingHours**                               | header - Defines what is working hours. Using these definitions allows the definitions of a different set of attributes for working and non-workings hours. Note Consists of start,stop pairs.
-**monday**	                                   | header - Defines the start and stop hours for Monday.
-**start**                                      | The start time. Value consists of four digits (HHMM).
-**stop**                                       | The start time. Value consists of four digits (HHMM)
-**tuesday**	                                   | header - Defines the start and stop hours for Tuesday.
-**start**                                      | The start time. Value consists of four digits (HHMM).
-**stop**                                       | The start time. Value consists of four digits (HHMM)
-**wednesday**                                  | header - Defines the start and stop hours for Wednesday.
-**start**                                      | The start time. Value consists of four digits (HHMM).
-**stop**                                       | The start time. Value consists of four digits (HHMM)
-**thursday**                                   | header - Defines the start and stop hours for Thursday.
-**start**                                      | The start time. Value consists of four digits (HHMM).
-**stop**                                       | The start time. Value consists of four digits (HHMM)
-**friday**	                                   | header - Defines the start and stop hours for Friday.
-**start**                                      | The start time. Value consists of four digits (HHMM).
-**stop**                                       | The start time. Value consists of four digits (HHMM)
-**saturday**                                   | header - Defines the start and stop hours for Saturday.
-**start**                                      | The start time. Value consists of four digits (HHMM).
-**stop**                                       | The start time. Value consists of four digits (HHMM)
-**sunday**	                                   | header - Defines the start and stop hours for Sunday.
-**start**                                      | The start time. Value consists of four digits (HHMM).
-**stop**                                       | The start time. Value consists of four digits (HHMM)
-**attributes**                                 | header - defines the attribute names that will override the default ticket values defined in the Connector.config.
-**name**                                       | A name that indicates the ticket attribute name (i.e. Priority_Name, Impact_Name, Urgency_Name, Classification_Name, Sup_Function, Medium, Source).
-**value**                                      | The value to be assigned to the attribute. 
-**workingHoursAttributes**                     | header - defines the attribute names that will override the default ticket values defined in the Connector.config during working hours.
-**name**                                       | A name that indicates the ticket attribute name (i.e. Priority_Name, Impact_Name, Urgency_Name, Classification_Name, Sup_Function, Medium, Source).
-**value**                                      | The value to be assigned to the attribute. 
-**nonWorkingHoursAttributes**                  | header - defines the attribute names that will override the default ticket values defined in the Connector.config during non working hours.
-**name**                                       | A name that indicates the ticket attribute name (i.e. Priority_Name, Impact_Name, Urgency_Name, Classification_Name, Sup_Function, Medium, Source).
-**value**                                      | The value to be assigned to the attribute. 
-**customAttributes**                           | header - defines the custom attribute that will added to the ticket information.
-**groupName**                                  | A group name associated with the custom attribute.
-**name**                                       | the name of the custom attribute.
-**value**                                      | The value to be assigned to the attribute. 
-**tags**                                       | header - Defines information if OpCon User defined Tags are to be used to include attributes in the ServiceNow submission. This is enabled if the rule **includeTagRouting** is set to True.
-**indicator**                                  | Defines what part of the tag should be used to identify the request. Supports TAG_END,  TAG_START, , DEFAULT or CATNAME. The DEFAULT value is used if there is no TAG_END or TAG_START match and TAG Routing is enabled. The EXIT tag is used to stop a ticket from being created and the CATNAME tag is used to define what value should be set for the Category_Name attribute.
-**indicatorValue**	                           | The value that is matched to the OpCon User defined tag (either the end or the start).
-**attribute**	                                 | Defines the attribute name that will be added to the JSON payload along with the value.
-**value**                                      | The value associated with the attribute.
+Templates provide information about the Symphony Summit connection and the JSON payload submitted with each request. A default template is in the `templates` directory of the connector installation.
 
-The address section of the template defines the address information associated with the Symphony Summit Instance. This allows a single connector the ability to submit requests to multiple Symphony Summit instances by simply creating multiple templates. The address section is required.
+A single connector can submit incidents to multiple Symphony Summit instances by creating multiple templates and selecting them at run time using the `-t` argument on the connector command line.
 
-The rules section of the template defines which rules should be used for the request. Values are either true or false. The rules section is required.
+A template defines:
 
-The credentials section of the template defines the Symphony Summit ApiKey to be used for the connection. This value must be encrypted using the EncryptValue.exe program. The credentials section is required.
+- The Symphony Summit instance address and view address.
+- Encrypted credentials.
+- Rules that control which features are active.
+- URLs used by the connector.
+- Working hours.
+- Default attributes, working-hours overrides, and custom attributes.
+- Tag-routing definitions.
 
-The workingHours section defines what is working hours. This allows a different set of attributes to defined when creating an incident for working and non-working hours.
+### 4.1 Address, view address, and credentials
 
-The attributes section defines ticket attribute values that will override the default values, while the workingHoursAttributes and nonWorkingHoursAttributes sections define ticket attribute values that will be overridden in those time slots.
+| Field | Description |
+| --- | --- |
+| `address.name` | A name to identify the Symphony Summit instance. |
+| `address.value` | The address of the Symphony Summit instance. |
+| `viewAddress.name` | A name for the view-address entry. |
+| `viewAddress.value` | The address used to view incidents. May differ from `address.value`. |
+| `credentials.apiKey` | The encrypted API key with the privileges required to submit requests to Symphony Summit. |
 
-The customAttributes section defines attributes values that will obe includes in teh CustomFields section of the ticket information. 
+:::caution
+The `apiKey` value must be encrypted using `EncryptValue.exe` before being placed in the template.
+:::
 
-The tags section defines incident routing information if OpCon Job User defined tags are used to route tickets. This functionality is enabled when the includeTagRouting rule is set to true. 
-The OpCon task tag definition can therefore be used to determine the routing of the ticket within the SymphonySummit environment. 
+### 4.2 Rules
 
-```
+Rules turn features on or off for a given template.
+
+| Rule | Description | Default |
+| --- | --- | --- |
+| `includeJobLogAttachment` | Attach the OpCon job log to the incident. | `true` |
+| `includeTagRouting` | Use OpCon tags to set the `Assigned_WorkGroup_Name` attribute. See [Tag routing](#tag-routing). | `false` |
+| `includeWorkGroupNameTag` | Use a `WRKGRP_<name>` tag to set the `Assigned_WorkGroup_Name` attribute. See [Workgroup names from tags](#workgroup-names-from-tags). | `false` |
+| `includeCategoryNameTag` | Use a `CATNAME_<name>` tag to set the `Category_Name` attribute. See [Category names from tags](#category-names-from-tags). | `false` |
+| `includeAssignToTag` | Use an `ASSIGNTO_<name>` tag to set the `Assigned_Engineer_Email` attribute. See [AssignTo from tags](#assignto-from-tags). | `false` |
+| `submitSingleIncidentPerDay` | Suppress duplicate incidents for the same job within a daily window. The `DAILY_START_HOUR` value in `Connector.config` defines the start of the daily window. | — |
+
+:::caution Mutually exclusive rules
+Either **includeTagRouting** or **includeWorkGroupNameTag** can be enabled, not both. When both are set to `true`, the connector applies **includeWorkGroupNameTag** first.
+:::
+
+### 4.3 URLs
+
+`urls` is a list of URL definitions used by the connector. Each entry has a `name` and a `value`. The address portion is omitted from `value` because the connector prefixes it with the value from `address.value`.
+
+| Name | Value |
+| --- | --- |
+| `incident` | URL path used to create an incident. |
+| `attachment` | URL path used to upload an attachment. |
+| `viewIncident` | Full URL pattern used to construct a view link for the incident. |
+
+### 4.4 Working hours
+
+`workingHours` defines a start and stop time for each day of the week, allowing different attribute values to be applied during working and non-working hours.
+
+Each day is an object with `start` and `stop`, each formatted as four digits (`HHMM`). Set both to `0000` to skip a day.
+
+### 4.5 Attributes
+
+The connector applies attribute values in the following order:
+
+1. Defaults from `Connector.config`.
+2. `attributes` from the template.
+3. `workingHoursAttributes` if the current time is within working hours.
+4. `nonWorkingHoursAttributes` if the current time is outside working hours.
+
+| Block | Purpose |
+| --- | --- |
+| `attributes` | Attribute values that override the defaults from `Connector.config`. |
+| `workingHoursAttributes` | Attribute values applied only during working hours. |
+| `nonWorkingHoursAttributes` | Attribute values applied only outside working hours. |
+| `customAttributes` | Custom attributes added to the `CustomFields` section of the ticket information. Each entry has `groupName`, `name`, and `value`. |
+
+Common attribute names: `Priority_Name`, `Impact_Name`, `Urgency_Name`, `Classification_Name`, `Sup_Function`, `Medium`, `Source`.
+
+### 4.6 Tag-routing definitions
+
+`tags` is a list of routing rules used when at least one of **includeTagRouting**, **includeWorkGroupNameTag**, **includeCategoryNameTag**, or **includeAssignToTag** is enabled.
+
+| Field | Description |
+| --- | --- |
+| `indicator` | The match mode: `TAG_END`, `TAG_START`, `DEFAULT`, `EXIT`, `CATNAME`, `WRKGRP`, or `ASSIGNTO`. |
+| `indicatorValue` | The value matched against the OpCon tag. |
+| `attribute` | The ticket attribute name set when the rule matches. |
+| `value` | The value assigned to the attribute when the rule matches. |
+
+See [Tag routing](#tag-routing) and the related sections below for detailed examples.
+
+### Example template
+
+```json
 {
-  "ticketDescription" : "OpCon Task Failure ( date @EV_Date schedule @EV_Schedule job @EV_Job server @EV_Agent error code @EV_errorcode )",
-  "ticketInformation" : "Test ticket created from API. Please ignore!!",
+  "ticketDescription": "OpCon job failure ( date @EV_Date schedule @EV_Schedule job @EV_Job server @EV_Agent error code @EV_errorcode )",
+  "ticketInformation": "Test ticket created from API. Please ignore!!",
   "address": {
     "name": "production",
     "value": "Symphony Summit Instance address"
@@ -219,7 +296,7 @@ The OpCon task tag definition can therefore be used to determine the routing of 
     "includeTagRouting": true,
     "includeCategoryNameTag": true,
     "includeWorkGroupNameTag": false,
-    "submitSingleIncidentPerDay": day,
+    "submitSingleIncidentPerDay": true,
     "includeAssignToTag": true
   },
   "credentials": {
@@ -230,7 +307,7 @@ The OpCon task tag definition can therefore be used to determine the routing of 
       "name": "incident",
       "value": "api_integration/REST/Summit_RESTWCF.svc/RESTService/CommonWS_JsonObjCall_JSON"
     },
-        {
+    {
       "name": "attachment",
       "value": "api_integration/REST/Summit_RESTWCF.svc/RESTService/Summit_UploadAttachmentBase64Encoded"
     },
@@ -240,335 +317,322 @@ The OpCon task tag definition can therefore be used to determine the routing of 
     }
   ],
   "workingHours": {
-    "monday": {
-      "start": "0800",
-      "stop": "1900"
-    },
-    "tuesday": {
-      "start": "0800",
-      "stop": "1900"
-    },
-    "wednesday": {
-      "start": "0800",
-      "stop": "1900"
-    },
-    "thursday": {
-      "start": "0800",
-      "stop": "1900"
-    },
-    "friday": {
-      "start": "0800",
-      "stop": "1900"
-    },
-    "saturday": {
-      "start": "0800",
-      "stop": "1100"
-    },
-    "sunday": {
-      "start": "0000",
-      "stop": "0000"
-    }
+    "monday":    { "start": "0800", "stop": "1900" },
+    "tuesday":   { "start": "0800", "stop": "1900" },
+    "wednesday": { "start": "0800", "stop": "1900" },
+    "thursday":  { "start": "0800", "stop": "1900" },
+    "friday":    { "start": "0800", "stop": "1900" },
+    "saturday":  { "start": "0800", "stop": "1100" },
+    "sunday":    { "start": "0000", "stop": "0000" }
   },
   "attributes": [
-    {
-      "name": "Impact_Name",
-      "value": "Low"
-    }, {
-      "name": "Urgency_Name",
-      "value": "High"
-    }
-    
+    { "name": "Impact_Name",  "value": "Low" },
+    { "name": "Urgency_Name", "value": "High" }
   ],
   "workingHoursAttributes": [],
   "nonWorkingHoursAttributes": [],
   "customAttributes": [
-    {
-      "groupName": "Other Details",
-      "name": "Job Name",
-      "value": "@EV_Job"
-    },
-    {
-      "groupName": "Other Details",
-      "name": "Abend",
-      "value": "Yes"
-    }
+    { "groupName": "Other Details", "name": "Job Name", "value": "@EV_Job" },
+    { "groupName": "Other Details", "name": "Abend",    "value": "Yes" }
   ],
   "tags": [
-    {
-      "indicator": "TAG_END",
-      "indicatorValue": "ROUTE1",
-      "attribute": "Assigned_WorkGroup_Name",
-      "value": "DevOps"
-    },
-    {
-      "indicator": "TAG_START",
-      "indicatorValue": "ROUTE2",
-      "attribute": "Assigned_WorkGroup_Name",
-      "value": "Operating SystemOrg2"
-    },
-    {
-      "indicator" : "EXIT",
-      "indicatorValue" : "NOTICKET",
-      "attribute" : "",
-      "value" : ""
-    },
-    {
-      "indicator" : "CATNAME",
-      "indicatorValue" : "CATNAME",
-      "attribute" : "Category_Name",
-      "value" : "testcatvalue"
-    },
-    {
-      "indicator" : "ASSIGNTO",
-      "indicatorValue" : "ASSIGNTO",
-      "attribute" : "Assign_To",
-      "value" : "service-now.com"
-    },
-    {
-      "indicator": "DEFAULT",
-      "indicatorValue": "DEFAULT",
-      "attribute": "Assigned_WorkGroup_Name",
-      "value": "DevOps"
-    }
+    { "indicator": "TAG_END",   "indicatorValue": "ROUTE1",   "attribute": "Assigned_WorkGroup_Name", "value": "DevOps" },
+    { "indicator": "TAG_START", "indicatorValue": "ROUTE2",   "attribute": "Assigned_WorkGroup_Name", "value": "Operating SystemOrg2" },
+    { "indicator": "EXIT",      "indicatorValue": "NOTICKET", "attribute": "",                        "value": "" },
+    { "indicator": "CATNAME",   "indicatorValue": "CATNAME",  "attribute": "Category_Name",           "value": "testcatvalue" },
+    { "indicator": "ASSIGNTO",  "indicatorValue": "ASSIGNTO", "attribute": "Assign_To",               "value": "service-now.com" },
+    { "indicator": "DEFAULT",   "indicatorValue": "DEFAULT",  "attribute": "Assigned_WorkGroup_Name", "value": "DevOps" }
   ]
 }
-
 ```
 
-### Customized Description and Information Definitions
-The ticketDescription and ticketInformation attribute values can be customized by using specific place holders associated with the arguments passed to the connector. 
+---
 
-Place Holder  | Value
---------------| -----------------
-@EV_Agent     | The name of teh agent that executed the failing task.
-@EV_Date      | The date when the failure occurred (format yyyy-MM-dd).
-@EV_errorcode | The job termination code.
-@EV_Job       | The name of the job that failed.
-@EV_Schedule  | The name of the schedule that contained the failed job.
+## Step 5: Configure Notification Manager
 
-### Customized Attribute, CustomAttribute Value definitions
-The attribute values can be customized by using specific place holders associated with the arguments passed to the connector. 
+Notification Manager runs the Symphony Summit Connector when a job completes with a failure condition. Adding the connector to a Notification Manager rule lets you assign it to many jobs at once instead of defining a failure event on every job.
 
-Place Holder  | Value
---------------| -----------------
-@EV_Agent     | The name of teh agent that executed the failing task.
-@EV_Date      | The date when the failure occurred (format yyyy-MM-dd).
-@EV_errorcode | The job termination code.
-@EV_Job       | The name of the job that failed.
-@EV_Schedule  | The name of the schedule that contained the failed job.
+To configure Notification Manager, complete the following steps:
 
-### Tag Routing
-Requires that the rule **includeTagRouting** is enabled. 
+1. In Notification Manager, on the **Jobs** tab, create a new group named **SymphonySummit**.
+2. Open the context menu for the **SymphonySummit** group and select **Add Job Trigger**.
+3. In the Add Job Trigger dialog, select **Job Failed**.
+4. On the **Run Command** tab, enter the values listed below.
 
-It should be noted that the rules **includeTagRouting** and **includeWorkGroupNameTag** are mutually inclusive as the result is the addition of the Assigned_WorkGroup_name tag.
-The precedence is to check if the rule **includeWorkGroupNameTag** is enabled (true). If the rule is not enabled, then a check is made to see if the **includeTagRouting** rule is enabled.
-Tag routing allows OpCon tag names to be used to determine the Assigned_WorkGroup_Name attribute of the ticket. 
+#### Run command
 
-When using tag routing the OpCon tag includes the routing indicator and this is used to perform a match to a defined tag value in the template. 
-The following tag indicators are supported
-
-Indicator     | Description
-------------- | --------------------------------------------------------
-**EXIT**      | Performs a match of against the complete job tag. 
-**TAG_START** | Indicates that the job tags will be checked for a matching value (**Indicator Value** field) from the start of each job tag in the list of tags.
-**TAG_END**   | Indicates that the job tags will be checked for a matching value (**Indicator Value** field) from the end of each job tag in the list of tags.
-**DEFAULT**   | Defines the attributes to used when there is no tag match. 
- 
-If the tag indicator is TAG_START, then a check is made to determine if there is an OpCon tag thats starts with the indicator value. If there is a 
-match, the value associated with  the template tag definition will be assigned to the Assigned_WorkGroup_Name attribute of the ticket. If there is
-no match, then the DEFAULT tag value will be used.
-A special tag EXIT can be defined that can be used to not create a ticket if the job fails. In this case, a match is made between the OpCon tag name and the template EXIT tag indicator value.
-
-Tag routing is defined using the **tags** structure.
-
-
-Examples
-
-```
-  OpCon Tag : APP1_ROUTE1
-
-  "tags": [
-    {
-      "indicator": "TAG_END",
-      "indicatorValue": "ROUTE1",
-      "attribute": "Assigned_WorkGroup_Name",
-      "value": "Application One"
-    },
-    {
-      "indicator": "DEFAULT",
-      "indicatorValue": "DEFAULT",
-      "attribute": "Assigned_WorkGroup_Name",
-      "value": "DevOps"
-    }
-  ]
-
-```
-In the above example the ticket Assigned_WorkGroup_Name attribute will be assigned the value **Application One**.
-
-```
-  OpCon Tag : APP_ONE
-
-  "tags": [
-    {
-      "indicator": "TAG_END",
-      "indicatorValue": "ROUTE1",
-      "attribute": "Assigned_WorkGroup_Name",
-      "value": "Application One"
-    },
-    {
-      "indicator": "DEFAULT",
-      "indicatorValue": "DEFAULT",
-      "attribute": "Assigned_WorkGroup_Name",
-      "value": "DevOps"
-    }
-  ]
-
-```
-In the above example the ticket Assigned_WorkGroup_Name attribute will be assigned the value **DevOps**.
-
-
-```
-  OpCon Tag : APP1_ROUTE1, NOTICKET
-
-  "tags": [
-    {
-      "indicator": "TAG_END",
-      "indicatorValue": "ROUTE1",
-      "attribute": "Assigned_WorkGroup_Name",
-      "value": "Application One"
-    {
-      "indicator" : "EXIT",
-      "indicatorValue" : "NOTICKET",
-      "attribute" : "",
-      "value" : ""
-    },
-      "indicator": "DEFAULT",
-      "indicatorValue": "DEFAULT",
-      "attribute": "Assigned_WorkGroup_Name",
-      "value": "DevOps"
-    }
-  ]
-
+```text
+C:\Connectors\SymphonySummit\SMASymphonySummit.exe -a [[$MACHINE NAME]] -s [[$SCHEDULE NAME]] -jn [[$JOB NAME]] -e [[$JOB TERMINATION]] -sd [[$SCHEDULE DATE-SSUM]] -si [[$SCHEDULE ID]] -sn [[$SCHEDULE INST]] -t basic.json
 ```
 
-In the above example no ticket will be created as the check for the EXIT is performed before the tag routing evaluation. 
+| Argument | Resolves to |
+| --- | --- |
+| `C:\Connectors\SymphonySummit\SMASymphonySummit.exe` | Path to the connector executable. |
+| `-a [[$MACHINE NAME]]` | Agent name. |
+| `-s [[$SCHEDULE NAME]]` | Schedule name. |
+| `-jn [[$JOB NAME]]` | Job name. |
+| `-e [[$JOB TERMINATION]]` | Job termination code. |
+| `-sd [[$SCHEDULE DATE-SSUM]]` | Date in `YYYY-MM-DD` format. |
+| `-si [[$SCHEDULE ID]]` | Schedule ID. |
+| `-sn [[$SCHEDULE INST]]` | Schedule instance. |
+| `-t basic.json` | Template in the `templates` folder to use. |
 
-### Assigning WorkGroup Names using OpCon tags
-Requires the rule **includeWorkGroupNameTag** to be enabled.
+#### Other Run Command settings
 
-It should be noted that the rules **includeTagRouting** and **includeWorkGroupNameTag** are mutually inclusive as the result is the addition of the Assigned_WorkGroup_name tag.
-The precedence is to check if the rule **includeWorkGroupNameTag** is enabled (true). If the rule is not enabled, then a check is made to see if the **includeTagRouting** rule is enabled.
-Tag routing allows OpCon tag names to be used to determine the Assigned_WorkGroup_Name attribute of the ticket. 
+| Setting | Value |
+| --- | --- |
+| **Working Directory** | `C:\Connectors\SymphonySummit` |
+| **Batch User** | Use Service Account — the batch user under which the job runs. |
 
-OpCon tag names can be used to determine the Assigned_WorkGroup_Name attribute of the ticket. 
+---
 
-When using work group naming by OpCon tags, an OpCon tag WRKGRP_workgroupname value must be used. The software will check OpCon tags for a tag that start with the WRKGRP prefix
-and extract the work group name from the tag, setting the Assigned_WorkGroup_Name attribute value to the extracted value.
+## Customization
 
-Indicator     | Description
-------------- | --------------------------------------------------------
-**WRKGRP**    | Defines the check value be made for work group name check. 
- 
+### Description and information placeholders
+
+The `ticketDescription` and `ticketInformation` template values can include the following placeholders. The connector substitutes the placeholders with arguments passed by Notification Manager.
+
+| Placeholder | Substituted with |
+| --- | --- |
+| `@EV_Agent` | Name of the agent that ran the failing job. |
+| `@EV_Date` | Date when the failure occurred (`yyyy-MM-dd`). |
+| `@EV_errorcode` | Job termination code. |
+| `@EV_Job` | Name of the job that failed. |
+| `@EV_Schedule` | Name of the schedule that contained the failed job. |
+
+The same placeholders are supported in `attributes` and `customAttributes` values.
+
+### Tag routing
+
+Tag routing uses an OpCon tag prefix or suffix to set the `Assigned_WorkGroup_Name` attribute on the ticket.
+
+**Requires:** **includeTagRouting** = `true`.
+
+| Indicator | What it matches |
+| --- | --- |
+| `TAG_END` | An OpCon tag that **ends** with the `indicatorValue`. |
+| `TAG_START` | An OpCon tag that **starts** with the `indicatorValue`. |
+| `DEFAULT` | Used when no other rule matches. |
+| `EXIT` | Suppresses ticket creation when the OpCon tag matches the `indicatorValue`. |
+
+The connector evaluates `EXIT` rules before any other tag routing rules.
+
+#### Example 1 — match on tag suffix
+
+```text
+OpCon tag: APP1_ROUTE1
 ```
-  OpCon Tag : APP1, WRKGRP_DevOps, TESTING
 
+```json
+"tags": [
+  {
+    "indicator": "TAG_END",
+    "indicatorValue": "ROUTE1",
+    "attribute": "Assigned_WorkGroup_Name",
+    "value": "Application One"
+  },
+  {
+    "indicator": "DEFAULT",
+    "indicatorValue": "DEFAULT",
+    "attribute": "Assigned_WorkGroup_Name",
+    "value": "DevOps"
+  }
+]
 ```
-In the above example, DevOps will be extracted from the WRKGRP_ OpCon tag and will be assigned to the Assigned_WorkGroup_Name attribute value. 
 
-### Category Names using OpCon tags
-Requires the rule **includeCategoryNameTag** to be enabled.
-OpCon tag names can be used to determine the Category_Name attribute of the ticket. 
+The ticket's `Assigned_WorkGroup_Name` is set to **Application One**.
 
-When using category naming by OpCon tags, an OpCon tag CATNAME_categoryname value must be used. The software will check OpCon tags for a tag that start with the CATNAME prefix
-and extract the category name from the tag, setting the Category_Name attribute value to thee xtracted value.
+#### Example 2 — fallback to DEFAULT
 
-Indicator     | Description
-------------- | --------------------------------------------------------
-**CATNAME**   | Defines the check value be made for category name check. 
- 
+```text
+OpCon tag: APP_ONE
 ```
-  OpCon Tag : APP1_ROUTE1, CATNAME_Elasticsearch
 
-  "tags": [
-    {
-      "indicator": "TAG_END",
-      "indicatorValue": "ROUTE1",
-      "attribute": "Assigned_WorkGroup_Name",
-      "value": "Application One"
-    {
-      "indicator" : "CATNAME",
-      "indicatorValue" : "CATNAME",
-      "attribute" : "Category_Name",
-      "value" : ""
-    },
-      "indicator": "DEFAULT",
-      "indicatorValue": "DEFAULT",
-      "attribute": "Assigned_WorkGroup_Name",
-      "value": "DevOps"
-    }
-  ]
-
+```json
+"tags": [
+  {
+    "indicator": "TAG_END",
+    "indicatorValue": "ROUTE1",
+    "attribute": "Assigned_WorkGroup_Name",
+    "value": "Application One"
+  },
+  {
+    "indicator": "DEFAULT",
+    "indicatorValue": "DEFAULT",
+    "attribute": "Assigned_WorkGroup_Name",
+    "value": "DevOps"
+  }
+]
 ```
-In the above example, Elasticsearch will be extracted from the CATNAME_ OpCon tag and will be assigned to the Category_Name attribute value. 
 
-### AssignTo using OpCon tags
-Requires the rule **includeAssignToTag** to be enabled.
-OpCon tag names can be used to determine the Assigned_Engineer_Email attribute of the ticket. 
+`APP_ONE` does not end with `ROUTE1`, so the `Assigned_WorkGroup_Name` falls through to the `DEFAULT` value, **DevOps**.
 
-When using assign to by OpCon tags, an OpCon tag ASSIGNTO_name value must be used. The software will check OpCon tags for a tag that start with the ASSIGNTO_ prefix
-and extract the name from the tag, setting the Assigned_Engineer_Email attribute value to the extracted value and appending the value definition to complete the user.
+#### Example 3 — suppress ticket with EXIT
 
-Indicator     | Description
-------------- | --------------------------------------------------------
-**ASSIGNTO**   | Defines the check value be made for assign to check. 
- 
+```text
+OpCon tags: APP1_ROUTE1, NOTICKET
 ```
-  OpCon Tag : APP1_ROUTE1, ASSIGNTO_test
 
-  "tags": [
-    {
-      "indicator": "TAG_END",
-      "indicatorValue": "ROUTE1",
-      "attribute": "Assigned_WorkGroup_Name",
-      "value": "Application One"
-    {
-      "indicator" : "ASSIGNTO",
-      "indicatorValue" : "ASSIGNTO",
-      "attribute" : "Assigned_Engineer_Email",
-      "value" : "@service-now.com"
-    },
-      "indicator": "DEFAULT",
-      "indicatorValue": "DEFAULT",
-      "attribute": "Assigned_WorkGroup_Name",
-      "value": "DevOps"
-    }
-  ]
-
+```json
+"tags": [
+  {
+    "indicator": "TAG_END",
+    "indicatorValue": "ROUTE1",
+    "attribute": "Assigned_WorkGroup_Name",
+    "value": "Application One"
+  },
+  {
+    "indicator": "EXIT",
+    "indicatorValue": "NOTICKET",
+    "attribute": "",
+    "value": ""
+  },
+  {
+    "indicator": "DEFAULT",
+    "indicatorValue": "DEFAULT",
+    "attribute": "Assigned_WorkGroup_Name",
+    "value": "DevOps"
+  }
+]
 ```
-In the above example, test will be extracted from the ASSIGNTO_ OpCon tag, the value @service-now.com will be appended to the extracted test and will be assigned to the AAssigned_Engineer_Email attribute value. 
 
-### OpCon Notification Manager Definition
-Notification Manager is used to execute the EasyVista Connector when a task completes with a failure condition. Using this approach allows the tasks to be added to the rule instead of defining a failure event on every task. 
+`NOTICKET` matches the `EXIT` rule, so no ticket is created.
 
-#### Configuring Run Command
-Using Notification Manager, select the Jobs tab and create a new Group called EasyVista.
-Once the Group has been created, select the EasyVista Group, perform a ‘right-click’ and select Add Job Trigger. In the Add Job Trigger selection, select Job Failed.
+### Workgroup names from tags
 
-In the Run Command tab, enter the following:
+Use a `WRKGRP_<name>` tag on the OpCon job to set the `Assigned_WorkGroup_Name` attribute on the incident. The connector strips the `WRKGRP_` prefix and uses the remainder as the workgroup name.
 
-**Command**			       C:\Connectors\SymphonySummit\SMASyphonySummit.exe -a [[$MACHINE NAME]] -s [[$SCHEDULE NAME]] -jn [[$JOB NAME]] -e [[$JOB TERMINATION]] -sd [[$SCHEDULE DATE-SSUM]] -si [[$SCHEDULE ID]] -sn [[$SCHEDULE INST]] -t basic.json
+**Requires:** **includeWorkGroupNameTag** = `true`.
 
-                           Where 
-                           C:\Connectors\EasyVista\EasyVista.exe 	is the location of the connector.
-                           -a [[$MACHINE NAME]]		                resolves to the agent name
-                           -s [[$SCHEDULE NAME]] 		              resolves to the schedule name
-                           -jn [[$JOB NAME]]			                resolves to the job name
-                           -e [[JOB TERMINATION]]		              resolves to the job termination code
-	                        -sd [[$SCHEDULE DATE-SSUM]]	            resolves to the date (format YYYY-MM-DD)
-	                        -si [[$SCHEDULE ID]]		                resolves to the schedule ID
-	                        -sn [[$SCHEDULE INST]]		              resolves to the schedule instance
-	                        -t basic.json		                        which template in the templates folder to use
+| Indicator | Description |
+| --- | --- |
+| `WRKGRP` | Prefix used for the workgroup name check. |
 
-**Working Directory**		C:\Connectors\SymphonySummit
+```text
+OpCon tags: APP1, WRKGRP_DevOps, TESTING
+```
 
-**Batch User**			    Use Service Account 	                The batch User under which the task will be run.
+`DevOps` is extracted from `WRKGRP_DevOps` and assigned to the `Assigned_WorkGroup_Name` attribute.
+
+### Category names from tags
+
+Use a `CATNAME_<name>` tag on the OpCon job to set the `Category_Name` attribute on the incident. The connector strips the `CATNAME_` prefix and uses the remainder as the category name.
+
+**Requires:** **includeCategoryNameTag** = `true`.
+
+| Indicator | Description |
+| --- | --- |
+| `CATNAME` | Prefix used for the category name check. |
+
+```text
+OpCon tags: APP1_ROUTE1, CATNAME_Elasticsearch
+```
+
+```json
+"tags": [
+  {
+    "indicator": "TAG_END",
+    "indicatorValue": "ROUTE1",
+    "attribute": "Assigned_WorkGroup_Name",
+    "value": "Application One"
+  },
+  {
+    "indicator": "CATNAME",
+    "indicatorValue": "CATNAME",
+    "attribute": "Category_Name",
+    "value": ""
+  },
+  {
+    "indicator": "DEFAULT",
+    "indicatorValue": "DEFAULT",
+    "attribute": "Assigned_WorkGroup_Name",
+    "value": "DevOps"
+  }
+]
+```
+
+`Elasticsearch` is extracted from `CATNAME_Elasticsearch` and assigned to the `Category_Name` attribute.
+
+### AssignTo from tags
+
+Use an `ASSIGNTO_<name>` tag on the OpCon job to set the `Assigned_Engineer_Email` attribute on the incident. The connector strips the `ASSIGNTO_` prefix, uses the remainder as the user portion of the address, and appends the `value` from the `ASSIGNTO` rule (typically a domain).
+
+**Requires:** **includeAssignToTag** = `true`.
+
+| Indicator | Description |
+| --- | --- |
+| `ASSIGNTO` | Prefix used for the AssignTo check. |
+
+```text
+OpCon tags: APP1_ROUTE1, ASSIGNTO_test
+```
+
+```json
+"tags": [
+  {
+    "indicator": "TAG_END",
+    "indicatorValue": "ROUTE1",
+    "attribute": "Assigned_WorkGroup_Name",
+    "value": "Application One"
+  },
+  {
+    "indicator": "ASSIGNTO",
+    "indicatorValue": "ASSIGNTO",
+    "attribute": "Assigned_Engineer_Email",
+    "value": "@service-now.com"
+  },
+  {
+    "indicator": "DEFAULT",
+    "indicatorValue": "DEFAULT",
+    "attribute": "Assigned_WorkGroup_Name",
+    "value": "DevOps"
+  }
+]
+```
+
+`test` is extracted from `ASSIGNTO_test` and combined with the `value` `@service-now.com`. The `Assigned_Engineer_Email` attribute is set to `test@service-now.com`.
+
+---
+
+## FAQs
+
+**Why must the connector be installed on the OpCon Windows Server?**
+Notification Manager invokes the connector using the **Run Command** option, which runs the command on the same server as Notification Manager. Installing the connector on the same server allows Notification Manager to start it directly when a job fails.
+
+**Why does the OpCon REST API have to use TLS?**
+The connector communicates with the OpCon system to retrieve job information and to update the incident ticket ID on the job. The `Connector.config` requires `USES_TLS=True` for this connection.
+
+**Where do I get an OpCon application token?**
+Generate an application token using the OpCon REST API, then record the token in the `TOKEN` value of the `[OPCON API]` section of `Connector.config`.
+
+**Why are credentials encrypted?**
+The connector requires that the Symphony Summit `apiKey` and any user or password values placed in the configuration and template files are encrypted with `EncryptValue.exe`. Storing only encrypted values keeps secrets out of plain text on disk.
+
+**Can I send incidents to more than one Symphony Summit instance from the same OpCon system?**
+Yes. Create a separate template for each Symphony Summit instance and pass the appropriate template name to the connector using the `-t` argument.
+
+**What is the $SCHEDULE DATE-SSUM property used for?**
+It is a special version of the schedule date in the `yyyy-MM-dd` format that the connector requires. Notification Manager passes this value as the `-sd` argument to the connector.
+
+**Can I enable both includeTagRouting and includeWorkGroupNameTag?**
+The two rules are mutually exclusive in effect. If both are set to `true`, the connector applies **includeWorkGroupNameTag** first and ignores **includeTagRouting**.
+
+## Glossary
+
+> **EncryptValue** — Utility (`EncryptValue.exe`) shipped with the connector that produces encrypted values for use in `Connector.config` and templates.
+
+> **Connector.config** — The configuration file that defines the OpCon API connection, default ticket attribute values, the proxy server, and global behavior such as debug mode.
+
+> **Template** — A JSON file in the `templates` directory that defines the connection to a Symphony Summit instance, the rules, attribute values, and tag-routing definitions.
+
+> **apiKey** — Encrypted Symphony Summit API key recorded in the `credentials` section of a template; used to authenticate with a Symphony Summit instance.
+
+> **Application token** — A token generated through the OpCon REST API that the connector uses to authenticate when communicating with the OpCon system.
+
+> **$SCHEDULE DATE-SSUM** — A global OpCon property created during installation that returns the schedule date in `yyyy-MM-dd` format.
+
+## Related topics
+
+- [Overview](./overview.md)
+- [Operation](./operation.md)
+- [Release notes](./release-notes.md)
