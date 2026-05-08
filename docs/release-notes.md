@@ -16,6 +16,12 @@ This release of the Symphony Summit Connector is for OpCon system 21.0 or greate
 
 ## 24
 
+### 24.3.0
+
+### What's new
+
+:eight_spoked_asterisk: **CON-1333***: Removed vulnerability CVE-2022-41404 by replacing ini4j library with Apache-commons-configuration library.
+
 ### 24.2.0
 
 ### What's new
