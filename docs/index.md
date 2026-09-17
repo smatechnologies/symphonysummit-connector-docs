@@ -1,4 +1,10 @@
 ---
+title: Symphony Summit Connector
+description: "Raise Symphony Summit incidents from OpCon job failures: installation, Connector.config, templates, tag routing, and Notification Manager setup."
+tags:
+  - Conceptual
+  - System Administrator
+  - Symphony Summit Connector
 slug: '/'
 sidebar_label: 'Symphony Summit Connector'
 hide_table_of_contents: true

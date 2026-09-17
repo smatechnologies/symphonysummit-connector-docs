@@ -18,21 +18,27 @@ This release of the Symphony Summit Connector is for OpCon system 21.0 or greate
 
 ### 24.3.0
 
-### What's new
+**Released:** 2026 May
 
-:eight_spoked_asterisk: **CON-1333***: Removed vulnerability CVE-2022-41404 by replacing ini4j library with Apache-commons-configuration library.
+#### What's new
+
+- **CON-1333**: Removed vulnerability CVE-2022-41404 by replacing the ini4j library with the Apache Commons Configuration library.
 
 ### 24.2.0
 
-### What's new
+**Released:** 2025 October
 
-:eight_spoked_asterisk: **CON-621**: Added the ability to assign a job to a specific person using the `Assigned_Engineer_Email` attribute.
+#### What's new
+
+- **CON-621**: Added the ability to assign a job to a specific person using the `Assigned_Engineer_Email` attribute.
 
 ### 24.1.0
 
-### What's new
+**Released:** 2025 January
 
-:eight_spoked_asterisk: **CONNUTIL-655**: Added an Incident view URL capability that allows a full definition of the incident viewing URL. To implement the change, add the new address to the template. This allows the incident address and the view address to differ when required; otherwise, define the `view-address` the same as the main address.
+#### What's new
+
+- **CONNUTIL-655**: Added an Incident view URL capability that allows a full definition of the incident viewing URL. To implement the change, add the new address to the template. This allows the incident address and the view address to differ when required; otherwise, define the `view-address` the same as the main address.
 
 ```json
 "viewAddress": {
@@ -42,5 +48,7 @@ This release of the Symphony Summit Connector is for OpCon system 21.0 or greate
 ```
 
 ### 24.0.0
+
+**Released:** 2024 October
 
 Initial release of the Symphony Summit Connector.

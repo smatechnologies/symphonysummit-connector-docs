@@ -20,8 +20,6 @@ The Symphony Summit Connector integrates with the Symphony Summit Incident Manag
 - Avoids duplicate tickets for the same job within a configurable daily window.
 - Routes tickets using OpCon tags (workgroup name, category name, assigned engineer email).
 
-Latest version of the Symphony Summit Connector is **24.2.0**.
-
 ## Components
 
 The OpCon implementation includes components that detect when a job errors, create the incident record (optionally including the job log), and insert the returned incident number into the job in the Daily tables.
@@ -55,7 +53,7 @@ $JOB NAME           The name of the job.
 ```
 
 2. Before creating a new incident ticket, the Symphony Summit Connector checks to see if an incident ticket has already been created for the job by examining the Incident Ticket ID field of the job information in the OpCon Daily Job table.
-3. If an incident ticket exists, the information is attached to the existing ticket and the ticket is re-opened. If an incident does not exist, a new ticket is created.
+3. A new incident ticket is created. This happens whether or not the job already has a ticket, unless the **submitSingleIncidentPerDay** rule suppresses it — see [Operation](./operation.md#preventing-duplicate-tickets-per-day).
 4. The returned incident number is written into the OpCon job in the Incident Ticket ID field.
 5. If the rule **includeJobLogAttachment** is enabled, the Symphony Summit Connector calls the OpCon REST API to retrieve the job log and attaches it to the created or existing incident ticket.
 

@@ -55,19 +55,9 @@ To install the Symphony Summit Connector, complete the following steps:
 
 ## Step 1: Install the OpCon Windows Agent
 
-Copy the supplied install file `SMASymphonySummitConnector-win.zip` and extract it into the installation directory.
+The connector runs under an OpCon Windows Agent on the OpCon Windows Server. Either use an existing Windows Agent on that server or install one, following the OpCon Windows Agent documentation.
 
-After the installation is complete, the root installation directory contains the following items:
-
-| Item | Purpose |
-| --- | --- |
-| `SMASymphonySummit.exe` | Connector executable |
-| `EncryptValue.exe` | Encryption utility for credentials |
-| `Connector.config` | Connector configuration file |
-| `java\` | Embedded OpenJDK 11 runtime |
-| `joblogs\` | Temporary storage for job logs retrieved from OpCon |
-| `templates\` | Symphony Summit template files |
-| `log\` | Connector log files |
+No connector-specific agent configuration is required. Notification Manager uses the agent's **Run Command** option to start the connector, which is set up in [Step 5](#step-5-configure-notification-manager).
 
 ## Step 2: Install the Symphony Summit Connector
 
@@ -79,6 +69,23 @@ To install the connector, complete the following steps:
    - Set the value to `yyyy-MM-dd`.
    - This property returns the schedule date in the `yyyy-MM-dd` format from the standard `$SCHEDULE DATE` property and is required by the connector.
 
+After the extraction, the root installation directory contains the following items:
+
+| Item | Purpose |
+| --- | --- |
+| `SMASymphonySummit.exe` | Connector executable |
+| `EncryptValue.exe` | Credential encoding utility |
+| `Connector.config` | Connector configuration file |
+| `java\` | Embedded OpenJDK 11 runtime |
+| `templates\` | Symphony Summit template files |
+
+The connector also uses two directories that the package does not contain. Create them if they are not present:
+
+| Directory | Purpose |
+| --- | --- |
+| `logFiles\` | Temporary storage for job logs retrieved from OpCon before they are attached to an incident. The name must match `LOG_FILES_DIRECTORY` in `Connector.config`. |
+| `log\` | The connector's own log files. See [Logging](#logging). |
+
 ## Step 3: Configure the connector
 
 Configuration of the connector requires three things:
@@ -89,16 +96,20 @@ Configuration of the connector requires three things:
 
 ### 3.1 Encrypt sensitive values
 
-All user and password values placed in the configuration and template files must be encrypted using the `EncryptValue.exe` utility provided with the connector. The utility uses standard 64-bit encryption and supports a `-v` argument that prints the encrypted value to the screen.
+The Symphony Summit `apiKey` must be encoded with the `EncryptValue.exe` utility provided with the connector before it is placed in a template. The connector decodes it on startup, so a plain-text key does not work. The utility supports a `-v` argument that prints the encoded value to the screen.
 
-To encrypt a value, run the utility with the `-v` argument:
+To encode a value, run the utility with the `-v` argument:
 
 ```bat
 EncryptValue.exe -v "abcdefg"
 ```
 
-:::tip
-Encrypt the Symphony Summit `apiKey` and the OpCon application `TOKEN` before pasting them into the template or `Connector.config`.
+:::caution
+
+Despite its name, `EncryptValue.exe` **encodes** values rather than encrypting them. It applies no cipher and uses no key, so anyone who can read a template can recover the original value. Encoding stops a credential being read at a glance, and that is all it does.
+
+Restrict access to `Connector.config` and the templates with operating system permissions, and treat every credential in them as recoverable.
+
 :::
 
 ### 3.2 Configure Connector.config
@@ -109,10 +120,14 @@ Encrypt the Symphony Summit `apiKey` and the OpCon application `TOKEN` before pa
 
 | Property | Description | Default |
 | --- | --- | --- |
-| `JOBLOGDIR` | Subdirectory for retrieved job logs. After successful attachment to the Symphony Summit incident, the log file is deleted. | `joblogs` |
-| `TEMPLATESDIR` | Subdirectory containing the template definitions. | `templates` |
-| `DAILY_START_HOUR` | The hour the daily batch processing starts (for example, `07` for 07:00). | — |
+| `LOG_FILES_DIRECTORY` | Subdirectory for retrieved job logs. After successful attachment to the Symphony Summit incident, the log file is deleted. | `logFiles` |
+| `TEMPLATES_DIRECTORY` | Subdirectory containing the template definitions. | `templates` |
+| `DAILY_START_HOUR` | The hour the daily batch processing starts, as two digits (for example, `07` for 07:00). **Required when the `submitSingleIncidentPerDay` rule is enabled** in any template. | none |
 | `DEBUG` | Debug logging mode. Run with `OFF` and switch to `ON` to capture an error condition. | `OFF` |
+
+:::caution
+`DAILY_START_HOUR` has no default. If a template enables `submitSingleIncidentPerDay` and this property is missing or empty, the connector fails when it next handles a failure of a job that already has an incident. Set it whenever you use that rule.
+:::
 
 #### `[DEFAULTS]` — default ticket attribute values
 
@@ -128,29 +143,31 @@ Encrypt the Symphony Summit `apiKey` and the OpCon application `TOKEN` before pa
 | `CATEGORY_NAME_VALUE` | `Category_Name` | `ElasticSearch` |
 | `ASSIGNED_WORK_GROUP_NAME_VALUE` | `Assigned_WorkGroup_Name` | `DevOps` |
 
-#### `[PROXY SERVER]` — optional proxy
+#### `[PROXY CONNECTION]` — optional proxy
 
 | Property | Description | Default |
 | --- | --- | --- |
-| `USES_PROXY` | Whether the connector uses a proxy server. Values: `True` or `False`. | `False` |
-| `ADDRESS` | The address of the proxy server. | — |
-| `PORT` | The port of the proxy server. | — |
+| `USE_PROXY` | Whether the connector uses a proxy server. Values: `True` or `False`. | `False` |
+| `PROXY_ADDRESS` | The address of the proxy server. | none |
+| `PROXY_PORT` | The port of the proxy server. | none |
 
-#### `[OPCON API]` — connection to OpCon
+#### `[OPCON API CONNECTION]` — connection to OpCon
 
 | Property | Description |
 | --- | --- |
-| `ADDRESS` | The server address of the OpCon API. |
+| `SERVER` | The server address of the OpCon API. |
 | `PORT` | The port number used by the OpCon API server. |
 | `USES_TLS` | Must be set to `True`. |
 | `TOKEN` | An application token used for authentication. Generate this in OpCon. |
 
 #### Example `Connector.config`
 
+Replace every value in angle brackets with your own.
+
 ```ini
 [GENERAL]
-JOBLOGDIR=joblogs
-TEMPLATESDIR=templates
+LOG_FILES_DIRECTORY=logFiles
+TEMPLATES_DIRECTORY=templates
 DAILY_START_HOUR=07
 DEBUG=OFF
 
@@ -165,16 +182,16 @@ SOURCE_VALUE=Event Trigger
 CATEGORY_NAME_VALUE=ElasticSearch
 ASSIGNED_WORK_GROUP_NAME_VALUE=DevOps
 
-[PROXY SERVER]
-USES_PROXY=False
-SERVER=
-PORT=
+[PROXY CONNECTION]
+USE_PROXY=False
+PROXY_ADDRESS=
+PROXY_PORT=
 
-[OPCON API]
-SERVER=BVHTEST02
+[OPCON API CONNECTION]
+SERVER=<opcon-api-server>
 PORT=9010
 USES_TLS=True
-TOKEN=fc0520dc-fc93-4d3a-bf2f-7d0584c69df2
+TOKEN=<opcon-api-application-token>
 ```
 
 :::note
@@ -207,24 +224,28 @@ A template defines:
 | `address.value` | The address of the Symphony Summit instance. |
 | `viewAddress.name` | A name for the view-address entry. |
 | `viewAddress.value` | The address used to view incidents. May differ from `address.value`. |
-| `credentials.apiKey` | The encrypted API key with the privileges required to submit requests to Symphony Summit. |
+| `credentials.apiKey` | The encoded API key with the privileges required to submit requests to Symphony Summit. Encode it with `EncryptValue.exe`. |
 
 :::caution
-The `apiKey` value must be encrypted using `EncryptValue.exe` before being placed in the template.
+The `apiKey` value must be encoded using `EncryptValue.exe` before being placed in the template. The connector decodes it unconditionally, so a plain-text key causes the connector to fail on startup.
 :::
 
 ### 4.2 Rules
 
-Rules turn features on or off for a given template.
+Rules turn features on or off for a given template. Every rule defaults to `false`, so set only the rules you want to enable.
+
+:::note
+Job log attachment is off by default. The example template further down this page switches it on, so a template based on the example attaches job logs and a minimal template built from this table does not.
+:::
 
 | Rule | Description | Default |
 | --- | --- | --- |
-| `includeJobLogAttachment` | Attach the OpCon job log to the incident. | `true` |
+| `includeJobLogAttachment` | Attach the OpCon job log to the incident. Requires an `attachment` entry in `urls`. | `false` |
 | `includeTagRouting` | Use OpCon tags to set the `Assigned_WorkGroup_Name` attribute. See [Tag routing](#tag-routing). | `false` |
 | `includeWorkGroupNameTag` | Use a `WRKGRP_<name>` tag to set the `Assigned_WorkGroup_Name` attribute. See [Workgroup names from tags](#workgroup-names-from-tags). | `false` |
 | `includeCategoryNameTag` | Use a `CATNAME_<name>` tag to set the `Category_Name` attribute. See [Category names from tags](#category-names-from-tags). | `false` |
-| `includeAssignToTag` | Use an `ASSIGNTO_<name>` tag to set the `Assigned_Engineer_Email` attribute. See [AssignTo from tags](#assignto-from-tags). | `false` |
-| `submitSingleIncidentPerDay` | Suppress duplicate incidents for the same job within a daily window. The `DAILY_START_HOUR` value in `Connector.config` defines the start of the daily window. | — |
+| `includeAssignToTag` | Use an `ASSIGNTO_<name>` tag to set the `Assigned_Engineer_Email` and `Assign_To` attributes. See [AssignTo from tags](#assignto-from-tags). | `false` |
+| `submitSingleIncidentPerDay` | Suppress duplicate incidents for the same job within a daily window. Requires `DAILY_START_HOUR` in `Connector.config`, which defines the start of the daily window. | `false` |
 
 :::caution Mutually exclusive rules
 Either **includeTagRouting** or **includeWorkGroupNameTag** can be enabled, not both. When both are set to `true`, the connector applies **includeWorkGroupNameTag** first.
@@ -234,17 +255,25 @@ Either **includeTagRouting** or **includeWorkGroupNameTag** can be enabled, not 
 
 `urls` is a list of URL definitions used by the connector. Each entry has a `name` and a `value`. The address portion is omitted from `value` because the connector prefixes it with the value from `address.value`.
 
-| Name | Value |
-| --- | --- |
-| `incident` | URL path used to create an incident. |
-| `attachment` | URL path used to upload an attachment. |
-| `viewIncident` | Full URL pattern used to construct a view link for the incident. |
+| Name | Required? | Value |
+| --- | --- | --- |
+| `incident` | Required | URL path used to create an incident. |
+| `attachment` | Required if `includeJobLogAttachment` is `true` | URL path used to upload an attachment. |
+| `viewIncident` | Required | Full URL pattern used to construct a view link for the incident. `{0}` is replaced with `viewAddress.value` and `{1}` with the incident's identifier. |
+
+:::caution
+All three entries must be present. `viewIncident` is used on every ticket the connector creates, so a template without it fails on the first job failure even though nothing else references it.
+:::
 
 ### 4.4 Working hours
 
 `workingHours` defines a start and stop time for each day of the week, allowing different attribute values to be applied during working and non-working hours.
 
-Each day is an object with `start` and `stop`, each formatted as four digits (`HHMM`). Set both to `0000` to skip a day.
+Each day is an object with `start` and `stop`, each formatted as four digits (`HHMM`). Set both to `0000` to treat the whole day as non-working.
+
+:::caution Windows cannot span midnight
+The connector compares the current hour against the start and stop hours of the same day, so `stop` must be later than `start`. A window such as `start` `2200` and `stop` `0200` never matches any hour, and every failure is treated as non-working hours. To cover an overnight operations period, use a window that ends at `2359`.
+:::
 
 ### 4.5 Attributes
 
@@ -266,13 +295,22 @@ Common attribute names: `Priority_Name`, `Impact_Name`, `Urgency_Name`, `Classif
 
 ### 4.6 Tag-routing definitions
 
-`tags` is a list of routing rules used when at least one of **includeTagRouting**, **includeWorkGroupNameTag**, **includeCategoryNameTag**, or **includeAssignToTag** is enabled.
+`tags` is a list of routing rules. Not every tag feature reads it:
+
+| Rule | Needs an entry in `tags`? |
+| --- | --- |
+| **includeTagRouting** | Yes — one entry per `TAG_START` / `TAG_END` match, plus `DEFAULT` |
+| **includeAssignToTag** | Yes — an `ASSIGNTO` entry, whose `value` supplies the email domain |
+| **includeWorkGroupNameTag** | No — the connector reads the `WRKGRP_` job tag directly |
+| **includeCategoryNameTag** | No — the connector reads the `CATNAME_` job tag directly |
+
+An `EXIT` entry is read whenever `tags` is present, independently of any rule.
 
 | Field | Description |
 | --- | --- |
 | `indicator` | The match mode: `TAG_END`, `TAG_START`, `DEFAULT`, `EXIT`, `CATNAME`, `WRKGRP`, or `ASSIGNTO`. |
 | `indicatorValue` | The value matched against the OpCon tag. |
-| `attribute` | The ticket attribute name set when the rule matches. |
+| `attribute` | The ticket attribute name set when the rule matches. Used by `TAG_START`, `TAG_END` and `DEFAULT` entries only; the `ASSIGNTO`, `CATNAME`, `WRKGRP` and `EXIT` entries ignore it. |
 | `value` | The value assigned to the attribute when the rule matches. |
 
 See [Tag routing](#tag-routing) and the related sections below for detailed examples.
@@ -340,7 +378,7 @@ See [Tag routing](#tag-routing) and the related sections below for detailed exam
     { "indicator": "TAG_START", "indicatorValue": "ROUTE2",   "attribute": "Assigned_WorkGroup_Name", "value": "Operating SystemOrg2" },
     { "indicator": "EXIT",      "indicatorValue": "NOTICKET", "attribute": "",                        "value": "" },
     { "indicator": "CATNAME",   "indicatorValue": "CATNAME",  "attribute": "Category_Name",           "value": "testcatvalue" },
-    { "indicator": "ASSIGNTO",  "indicatorValue": "ASSIGNTO", "attribute": "Assign_To",               "value": "service-now.com" },
+    { "indicator": "ASSIGNTO",  "indicatorValue": "ASSIGNTO", "attribute": "Assigned_Engineer_Email", "value": "@example.com" },
     { "indicator": "DEFAULT",   "indicatorValue": "DEFAULT",  "attribute": "Assigned_WorkGroup_Name", "value": "DevOps" }
   ]
 }
@@ -383,6 +421,41 @@ C:\Connectors\SymphonySummit\SMASymphonySummit.exe -a [[$MACHINE NAME]] -s [[$SC
 | --- | --- |
 | **Working Directory** | `C:\Connectors\SymphonySummit` |
 | **Batch User** | Use Service Account — the batch user under which the job runs. |
+
+#### Optional arguments
+
+The connector accepts two further arguments that the run command above does not use.
+
+| Argument | Purpose |
+| --- | --- |
+| `-i <number>` | Retrieves an existing incident by number. Not used when creating incidents from a job failure. |
+| `--tlsType <list>` | Sets the TLS protocol versions the connector offers, as a comma-separated list. Accepted values are `TLSv1`, `TLSv1.1`, `TLSv1.2`, and `NONE`. `NONE` means the connector does not set the protocol list and the Java runtime's own default applies. |
+
+:::note
+The default for `--tlsType` is `TLSv1,TLSv1.1,TLSv1.2`, which offers two protocol versions that current Java runtimes disable. To restrict the connector to `TLSv1.2`, pass `--tlsType TLSv1.2`.
+:::
+
+---
+
+## Logging
+
+The connector writes its own log to the `log` directory beneath the installation directory.
+
+| Item | Value |
+| --- | --- |
+| Active log file | `log\symphonysummit.log` |
+| Rotation | A new file is started when the active log reaches 100 MB. |
+| Retention | **Unlimited by default.** Rotated files are never deleted. |
+| Level written to file | `DEBUG` |
+| Level written to the console | `INFO` |
+
+:::caution
+Rotated log files are kept indefinitely. On a busy system the `log` directory grows without limit, so include it in whatever housekeeping you apply to the OpCon Windows Server.
+:::
+
+Setting `DEBUG=ON` in the `[GENERAL]` section of `Connector.config` raises the detail captured for troubleshooting. Return it to `OFF` once the condition has been captured.
+
+Job logs retrieved from OpCon are written to the `logFiles` directory and deleted once they have been attached to an incident. A file left behind in that directory indicates an attachment that did not complete.
 
 ---
 
@@ -502,11 +575,9 @@ OpCon tags: APP1_ROUTE1, NOTICKET
 
 Use a `WRKGRP_<name>` tag on the OpCon job to set the `Assigned_WorkGroup_Name` attribute on the incident. The connector strips the `WRKGRP_` prefix and uses the remainder as the workgroup name.
 
-**Requires:** **includeWorkGroupNameTag** = `true`.
+**Requires:** **includeWorkGroupNameTag** = `true`. No entry in the template's `tags` list is needed — the connector reads the job tag directly.
 
-| Indicator | Description |
-| --- | --- |
-| `WRKGRP` | Prefix used for the workgroup name check. |
+If no `WRKGRP_` tag is found, the `ASSIGNED_WORK_GROUP_NAME_VALUE` default from `Connector.config` is used.
 
 ```text
 OpCon tags: APP1, WRKGRP_DevOps, TESTING
@@ -518,50 +589,27 @@ OpCon tags: APP1, WRKGRP_DevOps, TESTING
 
 Use a `CATNAME_<name>` tag on the OpCon job to set the `Category_Name` attribute on the incident. The connector strips the `CATNAME_` prefix and uses the remainder as the category name.
 
-**Requires:** **includeCategoryNameTag** = `true`.
+**Requires:** **includeCategoryNameTag** = `true`. No entry in the template's `tags` list is needed — the connector reads the job tag directly.
 
-| Indicator | Description |
-| --- | --- |
-| `CATNAME` | Prefix used for the category name check. |
+If no `CATNAME_` tag is found, the `CATEGORY_NAME_VALUE` default from `Connector.config` is used.
 
 ```text
 OpCon tags: APP1_ROUTE1, CATNAME_Elasticsearch
-```
-
-```json
-"tags": [
-  {
-    "indicator": "TAG_END",
-    "indicatorValue": "ROUTE1",
-    "attribute": "Assigned_WorkGroup_Name",
-    "value": "Application One"
-  },
-  {
-    "indicator": "CATNAME",
-    "indicatorValue": "CATNAME",
-    "attribute": "Category_Name",
-    "value": ""
-  },
-  {
-    "indicator": "DEFAULT",
-    "indicatorValue": "DEFAULT",
-    "attribute": "Assigned_WorkGroup_Name",
-    "value": "DevOps"
-  }
-]
 ```
 
 `Elasticsearch` is extracted from `CATNAME_Elasticsearch` and assigned to the `Category_Name` attribute.
 
 ### AssignTo from tags
 
-Use an `ASSIGNTO_<name>` tag on the OpCon job to set the `Assigned_Engineer_Email` attribute on the incident. The connector strips the `ASSIGNTO_` prefix, uses the remainder as the user portion of the address, and appends the `value` from the `ASSIGNTO` rule (typically a domain).
+Use an `ASSIGNTO_<name>` tag on the OpCon job to set the `Assigned_Engineer_Email` and `Assign_To` attributes on the incident. The connector strips the `ASSIGNTO_` prefix, uses the remainder as the user portion of the address, and appends the `value` from the `ASSIGNTO` rule.
 
-**Requires:** **includeAssignToTag** = `true`.
+**Requires:** **includeAssignToTag** = `true`, and an `ASSIGNTO` entry in the template's `tags` list.
 
-| Indicator | Description |
+| Field | How the connector uses it |
 | --- | --- |
-| `ASSIGNTO` | Prefix used for the AssignTo check. |
+| `indicator` | Must be `ASSIGNTO`. |
+| `value` | Appended to the name taken from the job tag. Include the `@`, because the connector joins the two values without adding one. |
+| `attribute` | Not used. Both `Assigned_Engineer_Email` and `Assign_To` are set regardless of what this field contains. |
 
 ```text
 OpCon tags: APP1_ROUTE1, ASSIGNTO_test
@@ -579,7 +627,7 @@ OpCon tags: APP1_ROUTE1, ASSIGNTO_test
     "indicator": "ASSIGNTO",
     "indicatorValue": "ASSIGNTO",
     "attribute": "Assigned_Engineer_Email",
-    "value": "@service-now.com"
+    "value": "@example.com"
   },
   {
     "indicator": "DEFAULT",
@@ -590,7 +638,7 @@ OpCon tags: APP1_ROUTE1, ASSIGNTO_test
 ]
 ```
 
-`test` is extracted from `ASSIGNTO_test` and combined with the `value` `@service-now.com`. The `Assigned_Engineer_Email` attribute is set to `test@service-now.com`.
+`test` is extracted from `ASSIGNTO_test` and combined with the `value` `@example.com`. The `Assigned_Engineer_Email` and `Assign_To` attributes are both set to `test@example.com`.
 
 ---
 
@@ -603,10 +651,10 @@ Notification Manager invokes the connector using the **Run Command** option, whi
 The connector communicates with the OpCon system to retrieve job information and to update the incident ticket ID on the job. The `Connector.config` requires `USES_TLS=True` for this connection.
 
 **Where do I get an OpCon application token?**
-Generate an application token using the OpCon REST API, then record the token in the `TOKEN` value of the `[OPCON API]` section of `Connector.config`.
+Generate an application token using the OpCon REST API, then record the token in the `TOKEN` value of the `[OPCON API CONNECTION]` section of `Connector.config`.
 
-**Why are credentials encrypted?**
-The connector requires that the Symphony Summit `apiKey` and any user or password values placed in the configuration and template files are encrypted with `EncryptValue.exe`. Storing only encrypted values keeps secrets out of plain text on disk.
+**Why must the apiKey be encoded?**
+Because the connector decodes it on startup and a plain-text key does not work. Note that `EncryptValue.exe` encodes rather than encrypts — no cipher, no key — so encoding is not a security control. Anyone who can read the template can recover the key. Protect the file with operating system permissions.
 
 **Can I send incidents to more than one Symphony Summit instance from the same OpCon system?**
 Yes. Create a separate template for each Symphony Summit instance and pass the appropriate template name to the connector using the `-t` argument.
@@ -619,13 +667,13 @@ The two rules are mutually exclusive in effect. If both are set to `true`, the c
 
 ## Glossary
 
-> **EncryptValue** — Utility (`EncryptValue.exe`) shipped with the connector that produces encrypted values for use in `Connector.config` and templates.
+> **EncryptValue** — Utility (`EncryptValue.exe`) shipped with the connector that produces encoded values for use in templates. It encodes rather than encrypts: the original value can be recovered from the encoded form.
 
 > **Connector.config** — The configuration file that defines the OpCon API connection, default ticket attribute values, the proxy server, and global behavior such as debug mode.
 
 > **Template** — A JSON file in the `templates` directory that defines the connection to a Symphony Summit instance, the rules, attribute values, and tag-routing definitions.
 
-> **apiKey** — Encrypted Symphony Summit API key recorded in the `credentials` section of a template; used to authenticate with a Symphony Summit instance.
+> **apiKey** — Encoded Symphony Summit API key recorded in the `credentials` section of a template; used to authenticate with a Symphony Summit instance.
 
 > **Application token** — A token generated through the OpCon REST API that the connector uses to authenticate when communicating with the OpCon system.
 
