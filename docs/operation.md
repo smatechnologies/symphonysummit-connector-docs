@@ -26,12 +26,17 @@ When an OpCon job fails, the connector follows this flow:
 
 1. Notification Manager invokes the connector with the failed job's identifiers.
 2. The connector reads the OpCon Daily Job table to retrieve the job's current state and tags.
-3. If the job already has an Incident Ticket ID, the connector attaches the new failure information to the existing ticket and re-opens it.
-4. Otherwise, the connector creates a new incident and writes the returned incident number into the **Incident Ticket ID** field of the OpCon job.
-5. If **includeJobLogAttachment** is enabled, the connector retrieves the OpCon job log and attaches it to the incident.
+3. If one of the job's tags matches an `EXIT` rule in the template, the connector stops without creating an incident.
+4. If **submitSingleIncidentPerDay** is enabled and an incident has already been raised for this job within the current daily window, the connector stops without creating another.
+5. The connector creates a new incident and writes the returned incident number into the **Incident Ticket ID** field of the OpCon job.
+6. If **includeJobLogAttachment** is enabled, the connector retrieves the OpCon job log and attaches it to the incident.
 
 :::tip
-Use the **Incident Ticket ID** field on the OpCon job in the Daily tables to find the corresponding Symphony Summit incident.
+Use the **Incident Ticket ID** field on the OpCon job in the Daily tables to find the corresponding Symphony Summit incident. The field holds the most recent incident for that job, so where a job has failed more than once it points at the latest ticket.
+:::
+
+:::note Existing tickets are not reopened
+The connector does not update or reopen an incident it created earlier. Each failure produces its own incident. If you want one incident per job per day, enable **submitSingleIncidentPerDay**.
 :::
 
 ## Tag-driven routing
@@ -43,7 +48,7 @@ If at least one of the routing rules below is enabled in the template, OpCon job
 | `includeTagRouting` | Tag matches `TAG_START` or `TAG_END` rule in the template | `Assigned_WorkGroup_Name` |
 | `includeWorkGroupNameTag` | `WRKGRP_<name>` | `Assigned_WorkGroup_Name` |
 | `includeCategoryNameTag` | `CATNAME_<name>` | `Category_Name` |
-| `includeAssignToTag` | `ASSIGNTO_<name>` | `Assigned_Engineer_Email` |
+| `includeAssignToTag` | `ASSIGNTO_<name>` | `Assigned_Engineer_Email` and `Assign_To` |
 
 :::caution Rule precedence
 **includeTagRouting** and **includeWorkGroupNameTag** are mutually exclusive in effect — both target the `Assigned_WorkGroup_Name` attribute. If both are set to `true`, the connector applies **includeWorkGroupNameTag** first and ignores **includeTagRouting**.
@@ -91,8 +96,8 @@ If both **includeTagRouting** and **includeWorkGroupNameTag** are `true`, the co
 **How do I tell which incident corresponds to a failed OpCon job?**
 The connector writes the returned incident number into the **Incident Ticket ID** field of the failed job in the OpCon Daily tables. Use that field to correlate the OpCon job with the Symphony Summit incident.
 
-**Why was the same job's failure attached to an existing ticket instead of creating a new one?**
-Before creating a new ticket, the connector checks whether an Incident Ticket ID already exists on the job. If it does, the connector attaches the new failure information to the existing ticket and re-opens it.
+**Why is a new ticket created every time the same job fails?**
+That is the connector's normal behavior — each failure produces its own incident, and an incident created earlier is not updated or reopened. To get one incident per job per day instead, enable the **submitSingleIncidentPerDay** rule and set `DAILY_START_HOUR` in `Connector.config`.
 
 **How do I capture more detail when troubleshooting?**
 Set `DEBUG=ON` in the `[GENERAL]` section of `Connector.config` to enable verbose logging. Restore `DEBUG=OFF` once the issue is captured.
@@ -107,7 +112,7 @@ Set `DEBUG=ON` in the `[GENERAL]` section of `Connector.config` to enable verbos
 
 > **includeCategoryNameTag** — A connector rule that, when enabled, sets the `Category_Name` attribute from an OpCon tag of the form `CATNAME_<name>`.
 
-> **includeAssignToTag** — A connector rule that, when enabled, sets the `Assigned_Engineer_Email` attribute from an OpCon tag of the form `ASSIGNTO_<name>`.
+> **includeAssignToTag** — A connector rule that, when enabled, sets the `Assigned_Engineer_Email` and `Assign_To` attributes from an OpCon tag of the form `ASSIGNTO_<name>`. Both are set from the same value.
 
 > **Tag Manager** — An OpCon tool used to manage user-defined tags on jobs, simplifying the task of attaching consistent tags across jobs.
 
